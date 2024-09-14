@@ -10,11 +10,21 @@ contract Investment {
 
     IERC20 token;
 
+    uint256 TotalDepositEthers;
+
+    uint256 TotalDepositERC20;
+
     mapping(address => uint256) BalancesERC20;
+
+    mapping(address => uint256) public WithdrawnDepositAndRewardERC20;
 
     mapping(address => uint256) BalancesEthers;
 
-    mapping(address => uint256) DepositTime;
+    mapping(address => uint256) public WithdrawnDepositAndRewardEthers;
+
+    mapping(address => uint256) DepositTimeERC20;
+
+    mapping(address => uint256) DepositTimeEthers;
 
     mapping(address => bool) isInvestor;
 
@@ -29,6 +39,11 @@ contract Investment {
     event InvestorAdded(address indexed _investor);
 
     event InvestorRemoved(address indexed _investor);
+
+    event SuperAdminDepositedEthers(
+        address indexed _investor,
+        uint256 indexed _amount
+    );
 
     event InvestorDepositedEthers(
         address indexed _investor,
@@ -51,27 +66,28 @@ contract Investment {
     );
 
     modifier onlyAdmin() {
-        require(isAdmin[msg.sender]);
+        require(isAdmin[msg.sender], "Msg.Sender is not Admin");
         _;
     }
 
     modifier onlyInvestor() {
-        require(isInvestor[msg.sender]);
+        require(isInvestor[msg.sender], "Msg.Sender is not Investor");
         _;
     }
 
     modifier onlySuperAdmin() {
-        require(msg.sender == superAdmin);
+        require(msg.sender == superAdmin, "Msg.Sender is not SuperAdmin");
         _;
     }
 
-    constructor(address _token) {
-        superAdmin = msg.sender;
+    constructor(address _token, address _superadmin, uint256 _interestRate) {
+        superAdmin = _superadmin;
         token = IERC20(_token);
+        interestRate = _interestRate;
     }
 
     function setAdmin(address _admin) external onlySuperAdmin {
-        require(isAdmin[_admin], "Admin Already Added");
+        require(!isAdmin[_admin], "Admin Already Added");
         isAdmin[_admin] = true;
 
         emit AdminAdded(_admin);
@@ -84,7 +100,7 @@ contract Investment {
     }
 
     function removeAdmin(address _admin) external onlySuperAdmin {
-        require(!isAdmin[_admin], "Admin Does Not Exits");
+        require(isAdmin[_admin], "Admin Does Not Exits");
 
         isAdmin[_admin] = false;
 
@@ -106,7 +122,7 @@ contract Investment {
     }
 
     function removeInvestor(address _investor) external onlyAdmin {
-        require(!isInvestor[_investor], "Investor Does Not Exist");
+        require(isInvestor[_investor], "Investor Does Not Exist");
 
         isInvestor[_investor] = false;
 
@@ -120,23 +136,27 @@ contract Investment {
 
         payable(msg.sender).transfer(_amount);
         BalancesEthers[msg.sender] += _amount;
+        TotalDepositEthers += _amount;
 
-        DepositTime[msg.sender] = block.timestamp;
+        DepositTimeEthers[msg.sender] = block.timestamp;
 
         emit InvestorDepositedEthers(msg.sender, _amount);
     }
 
-    function withdrawInvestmentEthers(
-        uint256 _amount
-    ) external payable onlyInvestor {
+    function withdrawInvestmentEthers() external payable onlyInvestor {
         require(BalancesEthers[msg.sender] > 0, "No funds to withdraw");
 
-        ///////////////////////////////////////////////////////
+        uint256 interest = calculateRewardEthers(msg.sender);
+        uint256 totalAmount = BalancesEthers[msg.sender] + interest;
 
-        BalancesEthers[msg.sender] = BalancesEthers[msg.sender] - _amount;
-        payable(address(this)).transfer(_amount);
+        TotalDepositEthers - BalancesEthers[msg.sender];
+        WithdrawnDepositAndRewardEthers[msg.sender] = totalAmount;
+        BalancesEthers[msg.sender] = 0;
+        DepositTimeEthers[msg.sender] = 0;
 
-        emit InvestorWithdrawedEthers(msg.sender, _amount);
+        payable(msg.sender).transfer(totalAmount);
+
+        emit InvestorWithdrawedEthers(msg.sender, totalAmount);
     }
 
     function getInvestmentEthers() external view returns (uint256) {
@@ -149,18 +169,23 @@ contract Investment {
         token.transferFrom(msg.sender, address(this), _amount);
         BalancesERC20[msg.sender] += _amount;
 
-        DepositTime[msg.sender] = block.timestamp;
+        DepositTimeERC20[msg.sender] = block.timestamp;
         emit InvestorDepositedERC20(msg.sender, _amount);
     }
 
-    function withdrawInvestmentERC20(uint256 _amount) external onlyInvestor {
+    function withdrawInvestmentERC20() external onlyInvestor {
         require(BalancesERC20[msg.sender] > 0, "No funds to withdraw");
 
-        ///////////////////////////////////////////////////////
+        uint256 interest = calculateRewardERC20(msg.sender);
+        uint256 totalAmount = BalancesERC20[msg.sender] + interest;
 
-        BalancesERC20[msg.sender] = BalancesERC20[msg.sender] - _amount;
-        token.transfer(msg.sender, _amount);
-        emit InvestorWithdrawedERC20(msg.sender, _amount);
+        TotalDepositERC20 - BalancesERC20[msg.sender];
+        WithdrawnDepositAndRewardERC20[msg.sender] = totalAmount;
+        BalancesERC20[msg.sender] = 0;
+        DepositTimeERC20[msg.sender] = 0;
+
+        token.transfer(msg.sender, totalAmount);
+        emit InvestorWithdrawedERC20(msg.sender, totalAmount);
     }
 
     function getInvestmentERC20() external view returns (uint256) {
@@ -175,7 +200,18 @@ contract Investment {
         address _user
     ) internal view returns (uint256) {
         uint256 principal = BalancesEthers[_user];
-        uint256 timeElapsed = block.timestamp - DepositTime[_user];
+        uint256 timeElapsed = block.timestamp - DepositTimeEthers[_user];
+        uint256 timeInYears = timeElapsed / 365 days;
+
+        uint256 interest = (principal * interestRate * timeInYears) / 10000;
+        return interest;
+    }
+
+    function calculateRewardERC20(
+        address _user
+    ) internal view returns (uint256) {
+        uint256 principal = BalancesERC20[_user];
+        uint256 timeElapsed = block.timestamp - DepositTimeERC20[_user];
         uint256 timeInYears = timeElapsed / 365 days;
 
         uint256 interest = (principal * interestRate * timeInYears) / 10000;
@@ -186,19 +222,19 @@ contract Investment {
         interestRate = _interestRate;
     }
 
-    fallback() external payable onlyInvestor {
+    fallback() external payable onlySuperAdmin {
         require(msg.value > 0, "Can't deposit zero value");
 
         BalancesEthers[msg.sender] += msg.value;
 
-        emit InvestorDepositedEthers(msg.sender, msg.value);
+        emit SuperAdminDepositedEthers(msg.sender, msg.value);
     }
 
-    receive() external payable onlyInvestor {
+    receive() external payable onlySuperAdmin {
         require(msg.value > 0, "Can't deposit zero value");
 
         BalancesEthers[msg.sender] += msg.value;
 
-        emit InvestorDepositedEthers(msg.sender, msg.value);
+        emit SuperAdminDepositedEthers(msg.sender, msg.value);
     }
 }

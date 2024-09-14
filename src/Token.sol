@@ -10,7 +10,7 @@ contract Token is ERC20, Ownable, ERC20Permit {
     constructor(
         address initialOwner
     ) ERC20("Test", "TTT") Ownable(initialOwner) ERC20Permit("Test") {
-        _mint(msg.sender, 10000000 * 10 ** decimals());
+        _mint(initialOwner, 10000000 * 10 ** decimals());
     }
 
     function mint(address to, uint256 amount) public onlyOwner {
