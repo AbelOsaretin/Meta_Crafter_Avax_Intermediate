@@ -149,7 +149,7 @@ contract Investment {
         uint256 interest = calculateRewardEthers(msg.sender);
         uint256 totalAmount = BalancesEthers[msg.sender] + interest;
 
-        TotalDepositEthers - BalancesEthers[msg.sender];
+        TotalDepositEthers -= BalancesEthers[msg.sender];
         WithdrawnDepositAndRewardEthers[msg.sender] = totalAmount;
         BalancesEthers[msg.sender] = 0;
         DepositTimeEthers[msg.sender] = 0;
@@ -168,6 +168,7 @@ contract Investment {
         require(token.balanceOf(msg.sender) >= _amount, "Not enough tokens");
         token.transferFrom(msg.sender, address(this), _amount);
         BalancesERC20[msg.sender] += _amount;
+        TotalDepositERC20 += _amount;
 
         DepositTimeERC20[msg.sender] = block.timestamp;
         emit InvestorDepositedERC20(msg.sender, _amount);
@@ -179,7 +180,7 @@ contract Investment {
         uint256 interest = calculateRewardERC20(msg.sender);
         uint256 totalAmount = BalancesERC20[msg.sender] + interest;
 
-        TotalDepositERC20 - BalancesERC20[msg.sender];
+        TotalDepositERC20 -= BalancesERC20[msg.sender];
         WithdrawnDepositAndRewardERC20[msg.sender] = totalAmount;
         BalancesERC20[msg.sender] = 0;
         DepositTimeERC20[msg.sender] = 0;
@@ -218,8 +219,12 @@ contract Investment {
         return interest;
     }
 
-    function setInterestRate(uint256 _interestRate) external onlyAdmin {
+    function setInterestRate(uint256 _interestRate) external onlySuperAdmin {
         interestRate = _interestRate;
+    }
+
+    function getInterestRate() external view returns (uint256) {
+        return interestRate;
     }
 
     fallback() external payable onlySuperAdmin {

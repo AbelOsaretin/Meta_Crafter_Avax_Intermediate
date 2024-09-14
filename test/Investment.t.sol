@@ -36,6 +36,10 @@ contract InvestmentTest is Test {
 
         assertEq(address(investment).balance, 5 ether);
 
+        token.transfer(address(investment), 100 ether);
+
+        assertEq(token.balanceOf(address(investment)), 100 ether);
+
         token.transfer(user1, 100 ether);
         token.transfer(user2, 10 ether);
 
@@ -109,5 +113,14 @@ contract InvestmentTest is Test {
         vm.warp(oneYearLater);
 
         investment.withdrawInvestmentERC20();
+    }
+
+    function test_Increase_Intrest_Rate() public {
+        vm.startPrank(owner);
+        investment.setInterestRate(1000);
+
+        uint256 interestRate = investment.getInterestRate();
+
+        assertEq(interestRate, 1000);
     }
 }
