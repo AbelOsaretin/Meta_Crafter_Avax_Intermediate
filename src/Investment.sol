@@ -71,12 +71,15 @@ contract Investment {
     }
 
     modifier onlyInvestor() {
-        require(isInvestor[msg.sender], "Msg.Sender is not Investor");
+        if (!isInvestor[msg.sender]) {
+            revert("Msg.Sender is not Investor");
+        }
         _;
     }
 
     modifier onlySuperAdmin() {
-        require(msg.sender == superAdmin, "Msg.Sender is not SuperAdmin");
+        // require(msg.sender == superAdmin, "Msg.Sender is not SuperAdmin");
+        assert(msg.sender == superAdmin);
         _;
     }
 
@@ -132,7 +135,9 @@ contract Investment {
     function addInvestmentEthers(
         uint256 _amount
     ) external payable onlyInvestor {
-        require(_amount > 0, "Can't deposit zero value");
+        if (_amount == 0) {
+            revert("Can't deposit zero value");
+        }
 
         payable(msg.sender).transfer(_amount);
         BalancesEthers[msg.sender] += _amount;
@@ -164,7 +169,9 @@ contract Investment {
     }
 
     function addInvestmentERC20(uint256 _amount) external onlyInvestor {
-        require(_amount > 0, "Can't deposit zero value");
+        if (_amount == 0) {
+            revert("Can't deposit zero value");
+        }
         require(token.balanceOf(msg.sender) >= _amount, "Not enough tokens");
         token.transferFrom(msg.sender, address(this), _amount);
         BalancesERC20[msg.sender] += _amount;
@@ -175,7 +182,9 @@ contract Investment {
     }
 
     function withdrawInvestmentERC20() external onlyInvestor {
-        require(BalancesERC20[msg.sender] > 0, "No funds to withdraw");
+        if (BalancesERC20[msg.sender] == 0) {
+            revert("No funds to withdraw");
+        }
 
         uint256 interest = calculateRewardERC20(msg.sender);
         uint256 totalAmount = BalancesERC20[msg.sender] + interest;
@@ -228,7 +237,8 @@ contract Investment {
     }
 
     fallback() external payable onlySuperAdmin {
-        require(msg.value > 0, "Can't deposit zero value");
+        // require(msg.value > 0, "Can't deposit zero value");
+        assert(msg.value != 0);
 
         BalancesEthers[msg.sender] += msg.value;
 
@@ -236,7 +246,8 @@ contract Investment {
     }
 
     receive() external payable onlySuperAdmin {
-        require(msg.value > 0, "Can't deposit zero value");
+        assert(msg.value != 0);
+        // require(msg.value > 0, "Can't deposit zero value");
 
         BalancesEthers[msg.sender] += msg.value;
 
