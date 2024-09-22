@@ -36,12 +36,12 @@ contract InvestmentTest is Test {
 
         assertEq(address(investment).balance, 5 ether);
 
-        token.transfer(address(investment), 100 ether);
+        token.mint(address(investment), 100 ether);
 
         assertEq(token.balanceOf(address(investment)), 100 ether);
 
-        token.transfer(user1, 100 ether);
-        token.transfer(user2, 10 ether);
+        token.mint(user1, 100 ether);
+        token.mint(user2, 10 ether);
 
         assertEq(token.balanceOf(user1), 100 ether);
         assertEq(token.balanceOf(user2), 10 ether);
@@ -123,4 +123,10 @@ contract InvestmentTest is Test {
 
         assertEq(interestRate, 1000);
     }
+
+    // function test_having_fun() public {
+    //     vm.startPrank(user1);
+    //     // investment.withdrawInvestmentERC20(user1);
+    //     investment.WithdrawnDepositAndRewardEthers(user1);
+    // }
 }
